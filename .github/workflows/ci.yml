@@ -1,0 +1,24 @@
+name: CI
+on: [push, pull_request]
+permissions: { contents: read }
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env: { POSTGRES_DB: scholarships_test, POSTGRES_USER: scholarships, POSTGRES_PASSWORD: scholarships_test }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U scholarships -d scholarships_test" --health-interval=5s --health-timeout=5s --health-retries=15
+    env: { DJANGO_SECRET_KEY: ci-only-secret-key-with-more-than-fifty-characters-123456789, DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,testserver", DB_ENGINE: postgresql, DB_NAME: scholarships_test, DB_USER: scholarships, DB_PASSWORD: scholarships_test, DB_HOST: 127.0.0.1, DB_PORT: 5432 }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: { python-version: '3.14', cache: pip }
+      - run: pip install -r requirements.txt
+      - run: python manage.py migrate --noinput
+      - run: python manage.py seed
+      - run: python manage.py check
+      - run: pytest
+      - run: pip check
